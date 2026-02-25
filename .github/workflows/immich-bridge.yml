@@ -1,0 +1,34 @@
+name: Immich IPv6 Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Immich version to bridge (e.g., v1.94.1 or latest)'
+        required: true
+        default: 'latest'
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # These are the 2 main images needed for a standard Immich setup
+        component: [server, machine-learning]
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Sync Image
+        run: |
+          # 1. Pull from IPv4-only GHCR
+          docker pull ghcr.io/immich-app/immich-${{ matrix.component }}:${{ github.event.inputs.version }}
+          
+          # 2. Re-tag for your Docker Hub account
+          docker tag ghcr.io/immich-app/immich-${{ matrix.component }}:${{ github.event.inputs.version }} ${{ secrets.DOCKERHUB_USERNAME }}/immich-${{ matrix.component }}:${{ github.event.inputs.version }}
+          
+          # 3. Push to IPv6-friendly Docker Hub
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/immich-${{ matrix.component }}:${{ github.event.inputs.version }}
